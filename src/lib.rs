@@ -1,6 +1,11 @@
-use diesel::prelude::*;
-use dotenvy::dotenv;
 use std::env;
+use std::fs;
+use std::error::Error;
+use std::ffi::OsStr;
+use std::os::unix::ffi::OsStrExt;
+use regex::Regex;
+use dotenvy::dotenv;
+use diesel::prelude::*;
 use self::models::{NewPath, Path};
 
 pub mod models;
@@ -14,6 +19,31 @@ fn establish_connection() -> SqliteConnection {
         .unwrap_or_else(|_| panic!("Error connecting to {}", database_url))
 }
 
+pub fn retrieve_zsh_history() -> Result<(), Box<dyn Error>> {
+    let zsh_history_path = format!(
+        "/home/{}/.zsh_history",
+        users::get_current_username()
+            .unwrap()
+            .to_str()
+            .unwrap()
+    );
+    let source: Vec<u8> = fs::read(zsh_history_path)?;
+    let zsh_history = OsStr::from_bytes(&source[..])
+        .to_string_lossy();
+    let  re = Regex::new(r"cd\s*([^:\s]+)").unwrap();
+    let mut paths: Vec<&str> = Vec::new();
+    for (_, [path]) in re.captures_iter(&zsh_history).map(|c| c.extract()) {
+        let path = path.trim();
+        if !paths.contains(&path) {
+            paths.push(&path);
+        }
+    }
+    for path in paths {
+        insert(path.to_string());
+    }
+    Ok(())
+}
+
 pub fn insert(new_path: String) {
     use crate::schema::paths;
     let path = NewPath {path: new_path};
@@ -22,15 +52,16 @@ pub fn insert(new_path: String) {
         .expect("Error saving new path");
 }
 
-pub fn retrieve(directory: String) -> String {
-    use self::schema::{ self, paths::dsl::*};
+pub fn get_path(dir_name: String) -> Result<String, Box<dyn Error>> {
+    use self::schema::paths::dsl::*;
     
     let result = paths
-        .filter(path.like(directory))
+        .filter(path.like(dir_name))
         .select(Path::as_select())
         .first(&mut establish_connection())
-        .optional()
-        .expect("Couldn't find the path with the queried directory");
-    result.unwrap().path
+        .optional()?
+        //well we dealt with the Option but not the Result that's way: ?
+        .expect("can't find the path with dir_name");
+    Ok(result.path)
 }
 
