@@ -4,7 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+clap = "4.5.47"
 diesel = {version = "2.2.12", features = ["sqlite", "returning_clauses_for_sqlite_3_35"]}
+diesel_migrations = "2.2.0"
 dotenvy = "0.15.7"
 regex = "1.11.2"
 users = "0.11.0"

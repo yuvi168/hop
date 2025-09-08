@@ -7,6 +7,7 @@ use regex::Regex;
 use dotenvy::dotenv;
 use diesel::prelude::*;
 use self::models::{NewPath, Path};
+use diesel_migrations::{EmbeddedMigrations, embed_migrations, MigrationHarness};
 
 pub mod models;
 pub mod schema;
@@ -54,14 +55,18 @@ pub fn insert(new_path: String) {
 
 pub fn get_path(dir_name: String) -> Result<String, Box<dyn Error>> {
     use self::schema::paths::dsl::*;
-    
     let result = paths
         .filter(path.like(dir_name))
         .select(Path::as_select())
         .first(&mut establish_connection())
         .optional()?
-        //well we dealt with the Option but not the Result that's way: ?
         .expect("can't find the path with dir_name");
     Ok(result.path)
 }
 
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
+
+pub fn run_migration() {
+    let conn = &mut establish_connection();
+    conn.run_pending_migrations(MIGRATIONS).unwrap();
+}
