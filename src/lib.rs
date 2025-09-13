@@ -9,6 +9,9 @@ use diesel::prelude::*;
 use self::models::{NewPath, Path};
 use diesel_migrations::{EmbeddedMigrations, embed_migrations, MigrationHarness};
 
+#[cfg(test)]
+mod tests;
+
 pub mod models;
 pub mod schema;
 
